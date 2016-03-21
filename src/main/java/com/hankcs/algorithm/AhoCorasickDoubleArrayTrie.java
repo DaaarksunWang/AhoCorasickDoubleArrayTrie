@@ -46,21 +46,34 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
     protected int size;
 
     /**
+    * skip the special character your want
+    */
+    protected ISkippable skippable;
+
+    public AhoCorasickDoubleArrayTrie() {
+
+    }
+
+    public AhoCorasickDoubleArrayTrie(ISkippable skippable) {
+        this.skippable = skippable;
+    }
+
+    /**
      * Parse text
      * @param text The text
      * @return a list of outputs
      */
     public List<Hit<V>> parseText(String text)
     {
-        int position = 1;
-        int currentState = 0;
-        List<Hit<V>> collectedEmits = new LinkedList<Hit<V>>();
-        for (int i = 0; i < text.length(); ++i)
-        {
-            currentState = getState(currentState, text.charAt(i));
-            storeEmits(position, currentState, collectedEmits);
-            ++position;
-        }
+
+        final List<Hit<V>> collectedEmits = new LinkedList<Hit<V>>();
+
+        this.parseText(text, new IHit<V>() {
+            @Override
+            public void hit(int begin, int end, V value) {
+                collectedEmits.add(new Hit<V>(begin,end,value));
+            }
+        });
 
         return collectedEmits;
     }
@@ -72,21 +85,7 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
      */
     public void parseText(String text, IHit<V> processor)
     {
-        int position = 1;
-        int currentState = 0;
-        for (int i = 0; i < text.length(); ++i)
-        {
-            currentState = getState(currentState, text.charAt(i));
-            int[] hitArray = output[currentState];
-            if (hitArray != null)
-            {
-                for (int hit : hitArray)
-                {
-                    processor.hit(position - l[hit], position, v[hit]);
-                }
-            }
-            ++position;
-        }
+        this.parseText(text.toCharArray(),processor);
     }
 
     /**
@@ -94,23 +93,14 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
      * @param text The text
      * @param processor A processor which handles the output
      */
-    public void parseText(char[] text, IHit<V> processor)
+    public void parseText(char[] text, final IHit<V> processor)
     {
-        int position = 1;
-        int currentState = 0;
-        for (char c : text)
-        {
-            currentState = getState(currentState, c);
-            int[] hitArray = output[currentState];
-            if (hitArray != null)
-            {
-                for (int hit : hitArray)
-                {
-                    processor.hit(position - l[hit], position, v[hit]);
-                }
+        this.parseText(text, new IHitFull<V>() {
+            @Override
+            public void hit(int begin, int end, V value, int index) {
+                processor.hit(begin,end,value);
             }
-            ++position;
-        }
+        });
     }
 
     /**
@@ -122,16 +112,33 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
     {
         int position = 1;
         int currentState = 0;
+        int skipCount = 0;
+        boolean inCouting = false;
         for (char c : text)
         {
+            if (this.isContinue(c)) {
+                if (inCouting) {
+                    ++skipCount;
+                }else{
+                    ++position;
+                }
+                continue;
+            }
             currentState = getState(currentState, c);
+            if (currentState > 0) {
+                inCouting = true;
+            }
+
             int[] hitArray = output[currentState];
             if (hitArray != null)
             {
                 for (int hit : hitArray)
                 {
-                    processor.hit(position - l[hit], position, v[hit], hit);
+                    processor.hit(position - l[hit], position+skipCount, v[hit],hit);
                 }
+                position += skipCount;
+                skipCount = 0;
+                inCouting = false;
             }
             ++position;
         }
@@ -259,6 +266,13 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         }
     }
 
+    public interface ISkippable {
+
+        boolean isContinue(char c);
+
+    }
+
+
     /**
      * transmit state, supports failure function
      *
@@ -277,24 +291,6 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         return newCurrentState;
     }
 
-    /**
-     * store output
-     *
-     * @param position
-     * @param currentState
-     * @param collectedEmits
-     */
-    private void storeEmits(int position, int currentState, List<Hit<V>> collectedEmits)
-    {
-        int[] hitArray = output[currentState];
-        if (hitArray != null)
-        {
-            for (int hit : hitArray)
-            {
-                collectedEmits.add(new Hit<V>(position - l[hit], position, v[hit]));
-            }
-        }
-    }
 
     /**
      * transition of a state
@@ -331,6 +327,9 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         int p;
 
         p = b + c + 1;
+
+
+
         if (b != check[p])
         {
             if (nodePos == 0) return 0;
@@ -338,6 +337,10 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         }
 
         return p;
+    }
+
+    protected boolean isContinue(char c) {
+        return this.skippable == null ? false : this.skippable.isContinue(c);
     }
 
 
