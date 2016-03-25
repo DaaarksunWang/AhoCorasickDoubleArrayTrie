@@ -48,14 +48,14 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
     /**
     * skip the special character your want
     */
-    protected ISkippable skippable;
+    protected IIgnore ignore;
 
     public AhoCorasickDoubleArrayTrie() {
 
     }
 
-    public AhoCorasickDoubleArrayTrie(ISkippable skippable) {
-        this.skippable = skippable;
+    public AhoCorasickDoubleArrayTrie(IIgnore ignore) {
+        this.ignore = ignore;
     }
 
     /**
@@ -114,16 +114,34 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         int currentState = 0;
         int skipCount = 0;
         boolean inCouting = false;
-        for (char c : text)
+        for (int i=0; i<text.length; i++)
         {
-            if (this.isContinue(c)) {
-                if (inCouting) {
-                    ++skipCount;
-                }else{
-                    ++position;
+            char c = text[i];
+            int len ;
+            if (this.ignore != null  && (len = this.ignore.length()) > 0) {
+
+                int allocLen = text.length - i;
+                if (allocLen > len) allocLen = len;
+
+                char[] cs = new char[allocLen];
+
+                for (int j = 0; j < allocLen; j++) {
+                    cs[j] = text[i + j];
                 }
-                continue;
+
+                int ignoreCount = this.ignore.isIgnore(cs);
+                if (ignoreCount > 0) {
+                    if (inCouting) {
+                        skipCount += ignoreCount;
+                    } else {
+                        position += ignoreCount;
+                    }
+                    i += (ignoreCount-1);
+                    continue;
+                }
+
             }
+
             currentState = getState(currentState, c);
             if (currentState > 0) {
                 inCouting = true;
@@ -266,9 +284,11 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
         }
     }
 
-    public interface ISkippable {
+    public interface IIgnore {
 
-        boolean isContinue(char c);
+        int length();
+
+        int isIgnore(char[] c);
 
     }
 
@@ -338,11 +358,6 @@ public class AhoCorasickDoubleArrayTrie<V> implements Serializable
 
         return p;
     }
-
-    protected boolean isContinue(char c) {
-        return this.skippable == null ? false : this.skippable.isContinue(c);
-    }
-
 
     /**
      * Build a AhoCorasickDoubleArrayTrie from a map

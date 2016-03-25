@@ -11,11 +11,13 @@
  */
 
 import com.hankcs.algorithm.AhoCorasickDoubleArrayTrie;
-import com.hankcs.algorithm.CharacterSkip;
+import com.hankcs.algorithm.CharacterIgnore;
 import junit.framework.TestCase;
 import org.ahocorasick.trie.Trie;
 
 import java.io.*;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.*;
 
 /**
@@ -23,6 +25,20 @@ import java.util.*;
  */
 public class TestAhoCorasickDoubleArrayTrie extends TestCase
 {
+
+    public void testChar() throws IOException {
+        URLConnection connection = new URL("http://127.0.0.1:8080/aaa").openConnection();
+        byte[] temp = new byte[4];
+
+        int len = connection.getInputStream().read(temp);
+
+
+        String s = new String(temp);
+        for (char c : s.toCharArray()){
+            System.out.println(c);
+        }
+    }
+
     private AhoCorasickDoubleArrayTrie<String> buildASimpleAhoCorasickDoubleArrayTrie()
     {
         // Collect test data set
@@ -83,12 +99,32 @@ public class TestAhoCorasickDoubleArrayTrie extends TestCase
         // Build an AhoCorasickDoubleArrayTrie
 
 
-        CharacterSkip characterSkip = new CharacterSkip(',');
+        AhoCorasickDoubleArrayTrie.IIgnore characterIgnore = new AhoCorasickDoubleArrayTrie.IIgnore() {
 
-        AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<String>(characterSkip);
+            private char[] text = {'_','+'};
+
+            @Override
+            public int length() {
+                return 2;
+            }
+
+            @Override
+            public int isIgnore(char[] c) {
+
+                for (int i=0; i<c.length; i++){
+                    if (c[i] != text[i]){
+                        return i;
+                    }
+                }
+
+                return c.length;
+            }
+        };
+
+        AhoCorasickDoubleArrayTrie<String> acdat = new AhoCorasickDoubleArrayTrie<String>(characterIgnore);
         acdat.build(map);
         // Test it
-        final String text = "bbbbiph_ｗｗ_ｗoneaaaｗｗｗｗaaa___aaｗ_ｗ_ｗasssssｗｗ___ｗddddddｗ___ｗｗ";
+        final String text = "bbbbiph_+ｗｗ_+ｗoneaaaｗｗｗｗaaa__aaｗ_ｗ_ｗasssssｗｗ___ｗddddddｗ___ｗｗ";
         acdat.parseText(text, new AhoCorasickDoubleArrayTrie.IHit<String>()
         {
             @Override
